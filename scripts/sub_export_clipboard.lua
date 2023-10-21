@@ -20,31 +20,26 @@ options.read_options(o)
 ------------------------
 
 local function copy_subtitles()
+
     local i = 0
     local tracks_count = mp.get_property_number("track-list/count")
+
     while i < tracks_count do
+
+        msg.info("I: "..i)
         local track_type = mp.get_property(string.format("track-list/%d/type", i))
-        local track_index = mp.get_property_number(string.format("track-list/%d/ff-index", i))
         local track_selected = mp.get_property(string.format("track-list/%d/selected", i))
-        local track_title = mp.get_property(string.format("track-list/%d/title", i))
-        local track_lang = mp.get_property(string.format("track-list/%d/lang", i))
-        local track_external = mp.get_property(string.format("track-list/%d/external", i))
-        local track_codec = mp.get_property(string.format("track-list/%d/codec", i))
-        local path = mp.get_property('path')
-        local dir, filename = utils.split_path(path)
-        local fname = mp.get_property("filename/no-ext")
-        local index = string.format("0:%d", track_index)
-        local mkvextract_index = string.format("%d", track_index)
 
         if track_type == "sub" and track_selected == "yes" then
+
+            local track_external = mp.get_property(string.format("track-list/%d/external", i))
             if track_external == "yes" then
                 msg.info("Error: external subtitles have been selected")
                 mp.osd_message("Error: external subtitles have been selected", 2)
                 return
             end
 
-            local video_file = utils.join_path(dir, filename)
-
+            local track_codec = mp.get_property(string.format("track-list/%d/codec", i))
             local subtitles_ext = ".srt"
             if string.find(track_codec, "ass") ~= nil then
                 subtitles_ext = ".ass"
@@ -52,36 +47,38 @@ local function copy_subtitles()
                 subtitles_ext = ".sup"
             end
 
+            local track_lang = mp.get_property(string.format("track-list/%d/lang", i))
             if track_lang ~= nil then
-                if track_title ~= nil then
-                    subtitles_ext = "." .. track_title .. "." .. track_lang .. subtitles_ext
-                else
-                    subtitles_ext = "." .. track_lang .. subtitles_ext
-                end
+                subtitles_ext = "." .. track_lang .. subtitles_ext
             end
 
-            subtitles_file = utils.join_path(dir, fname .. subtitles_ext)
+            local path = mp.get_property('path')
+            local dir, path_filename = utils.split_path(path)
+            local filename = mp.get_property("filename/no-ext")
+            local subtitles_file = dir .. filename .. subtitles_ext
 
-            
+            msg.info("PATH: "..path)
+            msg.info("DIR: "..dir)
+            msg.info("PATH_FILENAME: "..path_filename)
             msg.info("Copying export subtitles command")
             mp.osd_message("Copying export subtitles command")
 
+            local track_index = mp.get_property_number(string.format("track-list/%d/ff-index", i))
             if o.mode == 'ffmpeg' then
+                local index = string.format("0:%d", track_index)
                 cmd = string.format("ffmpeg -y -hide_banner -loglevel error -i '%s' -map '%s' -vn -an -c:s copy '%s'",
-                    video_file, index, subtitles_file)
+                    path, index, subtitles_file)
                 msg.info("ffmpeg mode")
-                mp.osd_message("ffmpeg mode")
             elseif o.mode == 'mkvextract' then
+                local mkve_index = string.format("%d", track_index)
                 cmd = string.format("mkvextract tracks '%s' '%s':'%s'",
-                    video_file, mkvextract_index, subtitles_file)
+                    path, mkve_index, subtitles_file)
                 msg.info("mkvextract mode")
-                mp.osd_message("mkvextract mode")
             else
-                msg.info("Incorrectly set mode")
+                msg.info("Incorrectly set mode" .. o.mode)
                 mp.osd_message("Incorrectly set mode")
                 break
             end
-            
 
             local clipboard_cmd = string.format("xclip -silent -in -selection clipboard")
 
@@ -91,8 +88,13 @@ local function copy_subtitles()
 
             mp.osd_message(string.format("Copied to clipboard"))
 
-            args = { "gnome-terminal" }
-            utils.subprocess({ args = args})
+            --args = { "gnome-terminal" }
+            --utils.subprocess({ args = args})
+
+            local table = {}
+            table.name = "subprocess"
+            table.args = {"gnome-terminal"}
+            local res = mp.command_native(table)
 
             break
         end

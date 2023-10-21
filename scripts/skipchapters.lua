@@ -5,7 +5,9 @@ local opt = {
         "ED","[Ee]nding$", "^[Ee]nding:", "[Ee]nding [Cc]redits", "Closing",
         "[Pp]review$", "Next Prev.", "Next", "Preview", "PV",
 		"##Temporary",
-		--"Chapter 1", "Chapter 5", "Chapter 6",
+        --"Chapter 01",
+		--"Chapter 02", "Chapter 05", "Chapter 06",
+        --"Chapter 2", "Chapter 5", "Chapter 6",
 		--"Prologue",
     },
 }
