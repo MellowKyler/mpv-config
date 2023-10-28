@@ -1,12 +1,17 @@
 -- Abandoned ideas:
---      options-defined order of variables in filename
 --      if a string matches both filename and containing directory, or two containing directories in a row, then set that as title
 
--- Current ideas:
+--Future Options:
+
+-- Try_Get_Title
 --  could do a "try_get_title", where i first search containing folders for my custom title
 --  and then if i can't find it, "fallback_get_title"
 --  re-treads same loop it just went to, but this time going with whatever the containing folder is
 --  could also add it as an option
+
+-- Idea:
+--  if file already exists, don't overwrite, append "_<num>" or something similar
+--  add as option
 
 
 local options = require 'mp.options'
@@ -19,13 +24,20 @@ local o = {
     --number of containing directories you want to search through
     dir_num = 4,
     --include ms in time formatted title
-    include_ms = false,
+    include_ms = true,
     --include time in the filename
     filename_time = true,
     --include flag (subtitles, video, window) reference in filename
     filename_flag = true,
-    --the order you want the elements to appear in: options are time, flag, title
-    --filename_order = "time_flag_title",
+    --enable custom filename ordering
+    fno_opt = true,
+    --the order you want the elements to appear in the filename. 
+    --      options are: time, flag, title, str(<string>)
+    --      delimeter is "_" (underscore)
+    filename_order = "title_str([)_time_str(])_flag",
+    --delimeter to be used in filename ordering
+    fno_delim = "_",
+    --output image filetype
     filetype = ".jpg",
 }
 options.read_options(o)
@@ -133,6 +145,27 @@ local function get_title()
     return temp_title
 end
 
+local function filename_ordering(filename,arg_append,time)
+    local fno_str = ""
+    for element in o.filename_order:gmatch("[^_]+") do
+        if element == "time" then 
+            fno_str = fno_str .. time
+        elseif element == "flag" then
+            fno_str = fno_str .. arg_append
+        elseif element == "title" then
+            fno_str = fno_str .. filename
+        elseif element == "delim" then
+            fno_str = fno_str .. o.fno_delim
+        elseif element:match("str") then
+            fno_str = fno_str .. element:match("%((.-)%)")
+        else
+            fno_str = fno_str .. "fail"
+            msg.info("FILENAME_ORDERING ERROR [Bad element]: " .. element)
+        end
+    end
+    return fno_str
+end
+
 local function construct_filename(arg)
     local time = ""
     if o.filename_time == true then
@@ -156,7 +189,13 @@ local function construct_filename(arg)
     local filename = format_filename(mp.get_property("filename/no-ext"))
     filename = filename:gsub('%s+', '')
     --filename = o.filename_order[1] .. o.filename_order[2] .. o.filename_order[3] .. o.filetype
-    filename = time .. arg_append .. filename .. o.filetype
+    --filename = time .. arg_append .. filename .. o.filetype
+    --filename = filename .. arg_append .. time .. o.filetype
+    if o.fno_opt == true then 
+        filename = filename_ordering(filename,arg_append,time) .. o.filetype
+    else 
+        filename = filename .. arg_append .. time .. o.filetype
+    end
     local file = directory .. "/" .. filename
     return file, filename
 end
