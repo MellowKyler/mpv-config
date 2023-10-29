@@ -2,26 +2,18 @@
 --  +   if a string matches both filename and containing directory, or two containing directories in a row, then set that as title
 
 --Future Options:
---  +   since i'm already getting my custom title for the folder, i'm tempted to use it for the images
---      themselves. and it would definitely be possible to maintain "S01E02" and the like. however,
---      it would be really easy to miss an edge case, and i can't count on every show actually following
---      "S01E02" or even just numbering naming convention (sometimes titles of eps are used for ex.).
---      the result would be me being at a high risk of writing over past files, even with time included.
---      count included would solve, but i can't count on that. once i add redundant, worth revisiting.
+--  +   turn validate() and count_check() custom checks into options
+--      i.e. add "[DUB+SUB]" or "Downloads" to a table
+--      would be easy enough to make a table for each and loop over it
+--  +   simplify options list a bit. for ex. fno_opt probably doesn't need to exist.
+--      if "" is entered it can be assumed not
 
 -- Try_Get_Title
 --  could do a "try_get_title", where i first search containing folders for my custom title
 --  and then if i can't find it, "fallback_get_title"
 --  re-treads same loop it just went to, but this time going with whatever the containing folder is
 --  could also add it as an option
-
--- Redundant
---  if file already exists, don't overwrite, append "_<num>" or something similar
---  useful if person does not have time or count included
---  also useful if the titles of works in a folder are not unique
---  rare case but think of a multi-season anime where each of the episodes in each season 
---  are titled "0", "1", "2". without count, even files with timestamps can be written over.
---  add as option
+--  i kinda did this, but i feel my execution was poor. leaving this note as a reminder to revisit.
 
 local options = require 'mp.options'
 local utils = require 'mp.utils'
@@ -29,15 +21,38 @@ local msg = require 'mp.msg'
 
 ---- Script Options ----
 local o = {
-    --custom save directory (be sure to include final "/")
-    custom_save_dir = "/home/kyler/Pictures/mpv-scs/",
+    --custom save directory (do NOT include trailing "/")
+    custom_save_dir = "/home/kyler/Pictures/mpv-scs",
+    --sets the filename to only season and episode (ex. "S01E02") 
+    only_szn_ep = true,
+    --removes season and episode from filename
+    no_szn_ep = false,
+    --uses the title value as a filename. useful when custom title (ex. from [DUB+SUB])
+    --beware: it will maintain upper/lowercase and non-space delimiters used in title
+    use_title_as_filename = false,
+    --delimiter to replace spaces in title. set to "" for blank.
+    title_delim = " ",
+    --coverts title to uppercase
+    title_upper = false,
+    --coverts title to lowercase (if both upper and lower are true, lower takes precedence)
+    title_lower = false,
+    --delimiter to replace spaces in filename. set to "" for blank.
+    filename_delim = "",
+    --coverts filename to uppercase
+    filename_upper = false,
+    --coverts filename to lowercase (if both upper and lower are true, lower takes precedence)
+    filename_lower = false,
     --number of containing directories you want to search through
     dir_num = 4,
-    --number of digits to trail for filename numbering (used by filename_order and mpv_default)
+    --number of digits to trail for filename numbering (used by filename_order, mpv_default, and final duplicates check)
     count_num = 1,
-    --wrap count in brackets in filename
+    --wrap count in brackets in filename (used by fno, mpv_default, and duplicates)
     count_num_brackets = true,
-    --include ms in time formatted title
+    --if enabled, will append an iterating number to filename to avoid overwriting
+    duplicate_check_enabled = false,
+    --delimiter to be used when duplicate images are found. set to "" for blank.
+    duplicate_delim = " ",
+    --include ms in time formatted filename
     include_ms = true,
     --include time in the filename
     filename_time = true,
@@ -50,9 +65,9 @@ local o = {
     --the order you want the elements to appear in the filename. 
     --      options are: time, flag, title, delim, count, str(<string>)
     --      note: count MUST be at the end to work
-    --      delimeter between elements is "_" (underscore)
+    --      delimiter between elements is "_" (underscore)
     filename_order = "title_time_flag",
-    --delimeter to be used in filename ordering
+    --delimiter to be used in filename ordering
     fno_delim = "_",
     --output image filetype
     filetype = ".jpg",
@@ -80,20 +95,19 @@ local function format_time(seconds)
     return ret
 end
 
-local function format_filename(filename)
-    filename = filename:gsub('%b()', ''):gsub('%b[]', ''):gsub('[%-_]', ' '):gsub('[%c%p]', ''):gsub('%s+', ' ')
-    if string.find(filename, '%a+%s*[Ss]%d%d%s*[Ee]%d%d%s*%a+') or string.find(filename, '%a+%s*[Ss]%d%s*[Ee]%d%d%s*%a+') then
-        filename = filename:gsub('%s*[Ss]%d%d%s*[Ee]%d%d%s*%a+', ''):gsub('%s*[Ss]%d%s*[Ee]%d%d%s*%a+', '')
-    end
-    local lower_upper = string.find(filename, '%l%u')
-    if lower_upper ~= nil then
-        for i=1,lower_upper do
-            filename = filename:gsub('(%l)(%u)', '%1 %2')
-            -- consider changing this to '%1-%2' so directories don't have spaces
+--replace_str replaces the letters of a filename while maintaining szn_ep
+local function format_filename(filename, replace_str)
+    local szn_ep = string.match(filename, '[Ss]%d%d?[Ee]%d%d?')
+    filename = filename:gsub('%b()', ''):gsub('%b[]', ''):gsub('[%-_]', ' '):gsub('[%c%p]', ''):gsub('^(%s*)', ''):gsub('(%s*)$', '')--:gsub('%s+', ' ')
+    if replace_str ~= "" then
+        if szn_ep ~= nil then filename = replace_str .. szn_ep
+        else filename = replace_str
         end
     end
+    if o.only_szn_ep and szn_ep ~= nil then filename = szn_ep end
+    if o.no_szn_ep and szn_ep ~= nil then filename = filename:gsub('%s*[Ss]%d%d?[Ee]%d%d?%s*', '') end
+    --removes duplicate spaces, replaces spaces with delimiter, removes spaces at the start, and spaces at the end.
     filename = filename:gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', '')
-    --consider filename = lower(filename) so directories don't have caps (important to do this last since earlier functionality relies on uppercase)
     return filename
 end
 
@@ -170,13 +184,13 @@ local function file_exists(file)
     end
 end
 
-local function iterate_filecount(directory,filename_prefix)
+local function iterate_filecount(directory,filename_prefix,delimiter)
     local str_count, add_len, file
     local count = 0
     local finished = false
     if (o.count_num < 1) or (o.count_num > 10) then
         msg.info("ERROR: " .. o.count_num .. " digits entered as count_num option. Excluding count.")
-        file = directory .. filename_prefix .. o.filetype
+        file = directory .. "/" .. filename_prefix .. o.filetype
         local filename = filename_prefix .. o.filetype
         return file, filename
     end
@@ -195,7 +209,7 @@ local function iterate_filecount(directory,filename_prefix)
         if o.count_num_brackets == true then
             str_count = "[" .. str_count .. "]"
         end
-        file = directory .. filename_prefix .. str_count .. o.filetype
+        file = directory .. "/" .. filename_prefix .. delimiter .. str_count .. o.filetype
         if file_exists(file)==false then finished = true end
     end
     --still on the fence about how i want this to behave. if i want it to just replace max_count img
@@ -204,8 +218,9 @@ local function iterate_filecount(directory,filename_prefix)
     --(or something like it) if i don't have the count<max_count there
     --i could just refuse to screenshot at all if above max_count, but i don't like that option
     if count > max_count then msg.info("INFO: Image count above stated max count. Creating image anyway.") end
-    local filename = filename_prefix .. str_count .. o.filetype
-    return file, filename, str_count
+    local no_ext = filename_prefix .. delimiter .. str_count
+    local filename = no_ext .. o.filetype
+    return file, filename, no_ext, str_count
 end
 
 local function filename_ordering(filename,arg_append,time)
@@ -223,7 +238,7 @@ local function filename_ordering(filename,arg_append,time)
         elseif element:match("str") then
             fno_str = fno_str .. element:match("%((.-)%)")
         elseif element == "count" then
-            local file, filename, count = iterate_filecount(o.custom_save_dir,fno_str)
+            local file, filename, count = iterate_filecount(o.custom_save_dir,fno_str,"")
             fno_str = fno_str .. count
         else
             fno_str = fno_str .. "fail"
@@ -233,7 +248,20 @@ local function filename_ordering(filename,arg_append,time)
     return fno_str
 end
 
+local function mpv_default()
+    msg.info("INFO: mpv_default reached")
+    local directory = "/home/kyler/Pictures/mpv"
+    local exists = directory_exists(directory)
+    if exists == nil then
+        mp.commandv('run', 'mkdir', directory)
+    end
+    local filename_prefix = "mpv-shot"
+    local file, filename, no_ext, count = iterate_filecount(directory,filename_prefix,"")
+    return file, file, no_ext, directory
+end
+
 local function construct_filename(arg)
+    local no_ext, filename, file
     local time = ""
     if o.filename_time == true then
         time = format_time(mp.get_property("time-pos"))
@@ -248,40 +276,62 @@ local function construct_filename(arg)
     local title = get_title()
     --if uncategorized == true or title == "validation_failed" then
     if valid == false or uncategorized == true then
-        title = format_filename(mp.get_property("filename/no-ext"))
-        title = title:gsub('%d', ''):gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', '')
+        title = format_filename(mp.get_property("filename/no-ext"), "")
+        title = title:gsub('%s*[Ss]%d%d?[Ee]%d%d?%s*', ''):gsub('%d', '')--:gsub('%s+', ' ')
+        if title == "" then
+            msg.info("ERROR: Variable 'title' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config.")
+            file, filename, no_ext, directory = mpv_default()
+            return file, filename, no_ext, directory
+        end
     end
-    local directory = o.custom_save_dir .. title
+    title = title:gsub('%s+', o.title_delim)
+    if o.title_upper then title = title:upper() end
+    if o.title_lower then title = title:lower() end
+    local directory = o.custom_save_dir .. "/" .. title
     local exists = directory_exists(directory)
     if exists == nil then
         mp.commandv('run', 'mkdir', directory)
     end
-    local filename = format_filename(mp.get_property("filename/no-ext"))
-    filename = filename:gsub('%s+', '')
-    if o.fno_opt == true then 
-        filename = filename_ordering(filename,arg_append,time) .. o.filetype
-    else 
-        filename = filename .. arg_append .. time .. o.filetype
+    if o.use_title_as_filename then
+        filename = format_filename(mp.get_property("filename/no-ext"), title)
+    else
+        filename = format_filename(mp.get_property("filename/no-ext"), "")
     end
-    local file = directory .. "/" .. filename
-    return file, filename
-end
-
-local function mpv_default()
-    msg.info("INFO: mpv_default reached")
-    local directory = "/home/kyler/Pictures/mpv/"
-    local filename_prefix = "mpv-shot"
-    local file, filename, count = iterate_filecount(directory,filename_prefix)
-    return file, file
+    if filename == "" then
+        msg.info("ERROR: Variable 'filename' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config.")
+        file, filename, no_ext, directory = mpv_default()
+        return file, filename, no_ext, directory
+    end
+    filename = filename:gsub('%s+', o.filename_delim)
+    if o.filename_upper then filename = filename:upper() end
+    if o.filename_lower then filename = filename:lower() end
+    if o.fno_opt == true then 
+        no_ext = filename_ordering(filename,arg_append,time)
+        if no_ext == "" then
+            msg.info("ERROR: Variable 'no_ext' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config. Your filename_order option may be null.")
+            file, filename, no_ext, directory = mpv_default()
+            return file, filename, no_ext, directory
+        end
+        filename =  no_ext .. o.filetype
+    else 
+        no_ext = filename .. arg_append .. time
+        filename = no_ext .. o.filetype
+    end
+    file = directory .. "/" .. filename
+    return file, filename, no_ext, directory
 end
 
 local function btr_ss(arg)
     return function()
-        local file, filename
+        local file, filename, directory, no_ext
         if o.restore_mpv_default == true then
-            file, filename = mpv_default()
+            file, filename, no_ext, directory = mpv_default()
         else
-            file, filename = construct_filename(arg)
+            file, filename, no_ext, directory = construct_filename(arg)
+        end
+        --duplicate checking
+        if o.duplicate_check_enabled and file_exists(file) then
+            file, filename = iterate_filecount(directory,no_ext,o.duplicate_delim)
         end
         mp.osd_message("Screenshot: "..filename, 2)
         msg.info("FILE: "..file)
