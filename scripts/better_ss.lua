@@ -7,6 +7,9 @@
 --      would be easy enough to make a table for each and loop over it
 --  +   simplify options list a bit. for ex. fno_opt probably doesn't need to exist.
 --      if "" is entered it can be assumed not
+--      same with filename_time and filename_arg. they're trivial to grab, and if user wants a custom filename
+--      without time or arg they can use filename_order
+--  +   rename filename_order to custom_filename or something
 
 -- Try_Get_Title
 --  could do a "try_get_title", where i first search containing folders for my custom title
@@ -58,15 +61,15 @@ local o = {
     filename_time = true,
     --wrap time in brackets in filename
     time_brackets = true,
-    --include flag (subtitles, video, window) reference in filename
-    filename_flag = true,
+    --include arg (subtitles, video, window) reference in filename
+    filename_arg = true,
     --enable custom filename ordering
     fno_opt = true,
     --the order you want the elements to appear in the filename. 
-    --      options are: time, flag, title, delim, count, str(<string>)
+    --      options are: time, arg, title, delim, count, str(<string>)
     --      note: count MUST be at the end to work
     --      delimiter between elements is "_" (underscore)
-    filename_order = "title_time_flag",
+    filename_order = "title_time_arg",
     --delimiter to be used in filename ordering
     fno_delim = "_",
     --output image filetype
@@ -187,7 +190,6 @@ end
 local function iterate_filecount(directory,filename_prefix,delimiter)
     local str_count, add_len, file
     local count = 0
-    local finished = false
     if (o.count_num < 1) or (o.count_num > 10) then
         msg.info("ERROR: " .. o.count_num .. " digits entered as count_num option. Excluding count.")
         file = directory .. "/" .. filename_prefix .. o.filetype
@@ -199,7 +201,7 @@ local function iterate_filecount(directory,filename_prefix,delimiter)
         max_count = max_count .. "9"
     end
     max_count = tonumber(max_count)
-    while finished==false do
+    while true do
         count = count + 1
         str_count = tostring(count)
         add_len = o.count_num-string.len(str_count)
@@ -210,12 +212,10 @@ local function iterate_filecount(directory,filename_prefix,delimiter)
             str_count = "[" .. str_count .. "]"
         end
         file = directory .. "/" .. filename_prefix .. delimiter .. str_count .. o.filetype
-        if file_exists(file)==false then finished = true end
+        if file_exists(file)==false then break end
     end
     --still on the fence about how i want this to behave. if i want it to just replace max_count img
     --just add "and count<max_count" as a condition to the above while loop
-    --i don't like using a "finished" variable above, i'd rather just break, but i need to use it
-    --(or something like it) if i don't have the count<max_count there
     --i could just refuse to screenshot at all if above max_count, but i don't like that option
     if count > max_count then msg.info("INFO: Image count above stated max count. Creating image anyway.") end
     local no_ext = filename_prefix .. delimiter .. str_count
@@ -225,11 +225,11 @@ end
 
 local function filename_ordering(filename,arg_append,time)
     local fno_str = ""
-    msg.info("INFO: filename_ordering reached")
+    msg.info("INFO: filename_ordering function reached")
     for element in o.filename_order:gmatch("[^_]+") do
         if element == "time" then 
             fno_str = fno_str .. time
-        elseif element == "flag" then
+        elseif element == "arg" then
             fno_str = fno_str .. arg_append
         elseif element == "title" then
             fno_str = fno_str .. filename
@@ -249,7 +249,7 @@ local function filename_ordering(filename,arg_append,time)
 end
 
 local function mpv_default()
-    msg.info("INFO: mpv_default reached")
+    msg.info("INFO: mpv_default function reached")
     local directory = "/home/kyler/Pictures/mpv"
     local exists = directory_exists(directory)
     if exists == nil then
@@ -260,63 +260,71 @@ local function mpv_default()
     return file, file, no_ext, directory
 end
 
+local function empty_name(name, context)
+    msg.info("INFO: empty_name function reached with a context of "..context)
+    if name == "" then
+        msg.info("ERROR: Variable '"..context.."' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config.")
+        if context == "filename_ordering" then  msg.info("HINT: Your filename_order option may be null.") end
+        local file, filename, no_ext, directory = mpv_default()
+        return true, file, filename, no_ext, directory
+    else
+        return false
+    end
+end
+
 local function construct_filename(arg)
-    local no_ext, filename, file
+    local no_ext, filename, file, empty, en_file, en_filename, en_no_ext, en_directory
     local time = ""
+    -- /// TIME /// --
     if o.filename_time == true then
         time = format_time(mp.get_property("time-pos"))
         if o.time_brackets == true then
             time = "[" .. time .. "]"
         end
     end
+    -- /// ARGUMENT /// --
     local arg_append = ""
-    if o.filename_flag == true then
+    if o.filename_arg == true then
         arg_append = string.format('[' .. arg:sub(1, 1) .. ']')
     end
+    -- /// TITLE /// --
     local title = get_title()
-    --if uncategorized == true or title == "validation_failed" then
     if valid == false or uncategorized == true then
         title = format_filename(mp.get_property("filename/no-ext"), "")
-        title = title:gsub('%s*[Ss]%d%d?[Ee]%d%d?%s*', ''):gsub('%d', '')--:gsub('%s+', ' ')
-        if title == "" then
-            msg.info("ERROR: Variable 'title' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config.")
-            file, filename, no_ext, directory = mpv_default()
-            return file, filename, no_ext, directory
-        end
+        title = title:gsub('%s*[Ss]%d%d?[Ee]%d%d?%s*', ''):gsub('%d', '')
+        empty, en_file, en_filename, en_no_ext, en_directory = empty_name(title, "title")
+        if empty == true then return en_file, en_filename, en_no_ext, en_directory end
     end
     title = title:gsub('%s+', o.title_delim)
     if o.title_upper then title = title:upper() end
     if o.title_lower then title = title:lower() end
+    -- /// DIRECTORY /// --
     local directory = o.custom_save_dir .. "/" .. title
     local exists = directory_exists(directory)
     if exists == nil then
         mp.commandv('run', 'mkdir', directory)
     end
+    -- /// FILENAME /// --
     if o.use_title_as_filename then
         filename = format_filename(mp.get_property("filename/no-ext"), title)
     else
         filename = format_filename(mp.get_property("filename/no-ext"), "")
     end
-    if filename == "" then
-        msg.info("ERROR: Variable 'filename' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config.")
-        file, filename, no_ext, directory = mpv_default()
-        return file, filename, no_ext, directory
-    end
+    empty, en_file, en_filename, en_no_ext, en_directory = empty_name(filename, "filename")
+    if empty == true then return en_file, en_filename, en_no_ext, en_directory end
     filename = filename:gsub('%s+', o.filename_delim)
     if o.filename_upper then filename = filename:upper() end
     if o.filename_lower then filename = filename:lower() end
     if o.fno_opt == true then 
         no_ext = filename_ordering(filename,arg_append,time)
-        if no_ext == "" then
-            msg.info("ERROR: Variable 'no_ext' was blank after format_filename. Reverting to default mpv behavior. Consider revising options in better_ss config. Your filename_order option may be null.")
-            file, filename, no_ext, directory = mpv_default()
-            return file, filename, no_ext, directory
-        end
+        empty, en_file, en_filename, en_no_ext, en_directory = empty_name(no_ext, "filename_ordering")
+        if empty == true then return en_file, en_filename, en_no_ext, en_directory end
         filename =  no_ext .. o.filetype
     else 
         no_ext = filename .. arg_append .. time
         filename = no_ext .. o.filetype
     end
+    -- /// OUTPUT /// --
     file = directory .. "/" .. filename
     return file, filename, no_ext, directory
 end
