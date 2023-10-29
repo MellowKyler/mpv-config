@@ -1,7 +1,13 @@
 -- Abandoned ideas:
---      if a string matches both filename and containing directory, or two containing directories in a row, then set that as title
+--  +   if a string matches both filename and containing directory, or two containing directories in a row, then set that as title
 
 --Future Options:
+--  +   since i'm already getting my custom title for the folder, i'm tempted to use it for the images
+--      themselves. and it would definitely be possible to maintain "S01E02" and the like. however,
+--      it would be really easy to miss an edge case, and i can't count on every show actually following
+--      "S01E02" or even just numbering naming convention (sometimes titles of eps are used for ex.).
+--      the result would be me being at a high risk of writing over past files, even with time included.
+--      count included would solve, but i can't count on that. once i add redundant, worth revisiting.
 
 -- Try_Get_Title
 --  could do a "try_get_title", where i first search containing folders for my custom title
@@ -9,40 +15,52 @@
 --  re-treads same loop it just went to, but this time going with whatever the containing folder is
 --  could also add it as an option
 
--- Idea:
+-- Redundant
 --  if file already exists, don't overwrite, append "_<num>" or something similar
+--  useful if person does not have time or count included
+--  also useful if the titles of works in a folder are not unique
+--  rare case but think of a multi-season anime where each of the episodes in each season 
+--  are titled "0", "1", "2". without count, even files with timestamps can be written over.
 --  add as option
-
 
 local options = require 'mp.options'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
-
 ---- Script Options ----
 local o = {
+    --custom save directory (be sure to include final "/")
+    custom_save_dir = "/home/kyler/Pictures/mpv-scs/",
     --number of containing directories you want to search through
     dir_num = 4,
+    --number of digits to trail for filename numbering (used by filename_order and mpv_default)
+    count_num = 1,
+    --wrap count in brackets in filename
+    count_num_brackets = true,
     --include ms in time formatted title
     include_ms = true,
     --include time in the filename
     filename_time = true,
+    --wrap time in brackets in filename
+    time_brackets = true,
     --include flag (subtitles, video, window) reference in filename
     filename_flag = true,
     --enable custom filename ordering
     fno_opt = true,
     --the order you want the elements to appear in the filename. 
-    --      options are: time, flag, title, str(<string>)
-    --      delimeter is "_" (underscore)
-    filename_order = "title_str([)_time_str(])_flag",
+    --      options are: time, flag, title, delim, count, str(<string>)
+    --      note: count MUST be at the end to work
+    --      delimeter between elements is "_" (underscore)
+    filename_order = "title_time_flag",
     --delimeter to be used in filename ordering
     fno_delim = "_",
     --output image filetype
     filetype = ".jpg",
+    --enable default mpv behavior
+    restore_mpv_default = false,
 }
 options.read_options(o)
 ------------------------
-
 
 local function format_time(seconds)
     local parts = {}
@@ -145,8 +163,54 @@ local function get_title()
     return temp_title
 end
 
+local function file_exists(file)
+    local exists = io.open(file, "r")
+    if exists ~= nil then exists:close() return true
+    else return false
+    end
+end
+
+local function iterate_filecount(directory,filename_prefix)
+    local str_count, add_len, file
+    local count = 0
+    local finished = false
+    if (o.count_num < 1) or (o.count_num > 10) then
+        msg.info("ERROR: " .. o.count_num .. " digits entered as count_num option. Excluding count.")
+        file = directory .. filename_prefix .. o.filetype
+        local filename = filename_prefix .. o.filetype
+        return file, filename
+    end
+    local max_count = ""
+    for loop=1,o.count_num do
+        max_count = max_count .. "9"
+    end
+    max_count = tonumber(max_count)
+    while finished==false do
+        count = count + 1
+        str_count = tostring(count)
+        add_len = o.count_num-string.len(str_count)
+        for loop=1,add_len do
+            str_count = "0" .. str_count
+        end
+        if o.count_num_brackets == true then
+            str_count = "[" .. str_count .. "]"
+        end
+        file = directory .. filename_prefix .. str_count .. o.filetype
+        if file_exists(file)==false then finished = true end
+    end
+    --still on the fence about how i want this to behave. if i want it to just replace max_count img
+    --just add "and count<max_count" as a condition to the above while loop
+    --i don't like using a "finished" variable above, i'd rather just break, but i need to use it
+    --(or something like it) if i don't have the count<max_count there
+    --i could just refuse to screenshot at all if above max_count, but i don't like that option
+    if count > max_count then msg.info("INFO: Image count above stated max count. Creating image anyway.") end
+    local filename = filename_prefix .. str_count .. o.filetype
+    return file, filename, str_count
+end
+
 local function filename_ordering(filename,arg_append,time)
     local fno_str = ""
+    msg.info("INFO: filename_ordering reached")
     for element in o.filename_order:gmatch("[^_]+") do
         if element == "time" then 
             fno_str = fno_str .. time
@@ -158,6 +222,9 @@ local function filename_ordering(filename,arg_append,time)
             fno_str = fno_str .. o.fno_delim
         elseif element:match("str") then
             fno_str = fno_str .. element:match("%((.-)%)")
+        elseif element == "count" then
+            local file, filename, count = iterate_filecount(o.custom_save_dir,fno_str)
+            fno_str = fno_str .. count
         else
             fno_str = fno_str .. "fail"
             msg.info("FILENAME_ORDERING ERROR [Bad element]: " .. element)
@@ -170,6 +237,9 @@ local function construct_filename(arg)
     local time = ""
     if o.filename_time == true then
         time = format_time(mp.get_property("time-pos"))
+        if o.time_brackets == true then
+            time = "[" .. time .. "]"
+        end
     end
     local arg_append = ""
     if o.filename_flag == true then
@@ -181,16 +251,13 @@ local function construct_filename(arg)
         title = format_filename(mp.get_property("filename/no-ext"))
         title = title:gsub('%d', ''):gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', '')
     end
-    local directory = "/home/kyler/Pictures/mpv-scs/" .. title
+    local directory = o.custom_save_dir .. title
     local exists = directory_exists(directory)
     if exists == nil then
         mp.commandv('run', 'mkdir', directory)
     end
     local filename = format_filename(mp.get_property("filename/no-ext"))
     filename = filename:gsub('%s+', '')
-    --filename = o.filename_order[1] .. o.filename_order[2] .. o.filename_order[3] .. o.filetype
-    --filename = time .. arg_append .. filename .. o.filetype
-    --filename = filename .. arg_append .. time .. o.filetype
     if o.fno_opt == true then 
         filename = filename_ordering(filename,arg_append,time) .. o.filetype
     else 
@@ -200,10 +267,24 @@ local function construct_filename(arg)
     return file, filename
 end
 
+local function mpv_default()
+    msg.info("INFO: mpv_default reached")
+    local directory = "/home/kyler/Pictures/mpv/"
+    local filename_prefix = "mpv-shot"
+    local file, filename, count = iterate_filecount(directory,filename_prefix)
+    return file, file
+end
+
 local function btr_ss(arg)
     return function()
-        local file, filename = construct_filename(arg)
-        mp.osd_message("Screenshot: "..filename, 3)
+        local file, filename
+        if o.restore_mpv_default == true then
+            file, filename = mpv_default()
+        else
+            file, filename = construct_filename(arg)
+        end
+        mp.osd_message("Screenshot: "..filename, 2)
+        msg.info("FILE: "..file)
         mp.commandv('screenshot-to-file', file, arg)
     end
 end
