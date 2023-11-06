@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+import subprocess
+import time
+import sys
+
+#app = sys.argv[1]
+appAndParams = sys.argv[1]
+
+#
+app = appAndParams[0].split(' ', 1)[0]
+
+get = lambda x: subprocess.check_output(["/bin/bash", "-c", x]).decode("utf-8")
+ws1 = get("wmctrl -lp"); t = 0
+#subprocess.Popen(["/bin/bash", "-c", app])
+subprocess.Popen(["/bin/bash", "-c", appAndParams])
+
+while t < 30:      
+    ws2 = [w.split()[0:3] for w in get("wmctrl -lp").splitlines() if not w in ws1]
+    procs = [[(p, w[0]) for p in get("ps -e ww").splitlines() \
+              if app in p and w[2] in p] for w in ws2]
+    if len(procs) > 0:
+        w_id = procs[0][0][1]
+        cmd1 = "wmctrl -ir "+w_id+" -b remove,maximized_horz"
+        cmd2 = "wmctrl -ir "+w_id+" -b remove,maximized_vert"
+        #cmd3 = "xdotool windowsize --sync "+procs[0][0][1]+" "+sys.argv[4]+"% "+sys.argv[5]+"%"
+        cmd3 = "xdotool windowsize --sync "+procs[0][0][1]+" "+sys.argv[4]+" "+sys.argv[5]+""
+        cmd4 = "xdotool windowmove "+procs[0][0][1]+" "+sys.argv[2]+" "+sys.argv[3]
+        for cmd in [cmd1, cmd2, cmd3, cmd4]:   
+            subprocess.call(["/bin/bash", "-c", cmd])
+        break
+    time.sleep(0.5)
+    t = t+1
+    
+# REQUIRES wmctrl AND xdotool
+# https://askubuntu.com/questions/613973/how-can-i-start-up-an-application-with-a-pre-defined-window-size-and-position
+# wmctrl -Gl lists windows and their geometry
+# i modified the script. old > new:
+# setwindow <application> <horizontal-position> <vertical-position> <horizontal-size (%)> <vertical-size (%)>
+# setwindow <application> <horizontal-position> <vertical-position> <horizontal-size> <vertical-size>
+# this is because my canvas is 3000x1920 because multi-monitor
+# absolute position is more resiliant than %
+# closest thing to bottom right before was between these inputs:
+# :~$ setwindow nemo 970 900 32 27
+# :~$ setwindow nemo 970 900 32 26
+# whereas this input works perfectly:
+# :~$ setwindow nemo 970 900 960 512
+
+
+# the original script:
+
+# #!/usr/bin/env python3
+# import subprocess
+# import time
+# import sys
+
+# app = sys.argv[1]
+
+# get = lambda x: subprocess.check_output(["/bin/bash", "-c", x]).decode("utf-8")
+# ws1 = get("wmctrl -lp"); t = 0
+# subprocess.Popen(["/bin/bash", "-c", app])
+
+# while t < 30:      
+#     ws2 = [w.split()[0:3] for w in get("wmctrl -lp").splitlines() if not w in ws1]
+#     procs = [[(p, w[0]) for p in get("ps -e ww").splitlines() \
+#               if app in p and w[2] in p] for w in ws2]
+#     if len(procs) > 0:
+#         w_id = procs[0][0][1]
+#         cmd1 = "wmctrl -ir "+w_id+" -b remove,maximized_horz"
+#         cmd2 = "wmctrl -ir "+w_id+" -b remove,maximized_vert"
+#         cmd3 = "xdotool windowsize --sync "+procs[0][0][1]+" "+sys.argv[4]+"% "+sys.argv[5]+"%"
+#         cmd4 = "xdotool windowmove "+procs[0][0][1]+" "+sys.argv[2]+" "+sys.argv[3]
+#         for cmd in [cmd1, cmd2, cmd3, cmd4]:   
+#             subprocess.call(["/bin/bash", "-c", cmd])
+#         break
+#     time.sleep(0.5)
+#     t = t+1
