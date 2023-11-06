@@ -4,11 +4,13 @@
 -- current behavior: when prev_speed is nil, run the command, and set prev_speed = cur_speed
 -- if persist properties has set the cur_speed, cur_speed *should* still apply, but I haven't verified this
 
--- this works because prev_speed is a global variable
+-- this works because prev_speed is a global variable (*CORRECTION*: actually i just local it outside the function)
 -- a fallback alternative solution to do this:
 --  use a file in /tmp/ to track prev_speed, overwriting it each time
 --  would behave differently, as prev_speed would maintain between processes and would only reset on OS restart
 --  I like how the current version works better so we're keeping this
+
+local prev_speed
 
 local function set_speed(command, value)
     return function() --still don't understand how this works with input parameters
