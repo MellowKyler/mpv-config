@@ -1,6 +1,6 @@
 # mpv-config
 
-The following scripts were all modified or coded entirely by me:
+The following scripts were modified or coded entirely by me:
 * ```open_anilist_page.lua```
 * ```better_ss.lua```
 * ```speed_control.lua```
