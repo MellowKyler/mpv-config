@@ -7,6 +7,9 @@ local options = require "mp.options"
 local o = {
     --mkvextract or ffmpeg
     mode = "ffmpeg",
+    ass2txt = true,
+    ass2txt_dir = "/home/kyler/.config/mpv/scripts/.utils/ass2txt.lua",
+    incl_timestamps = true
 }
 
 options.read_options(o)
@@ -94,6 +97,10 @@ local function export_selected_subtitles()
             else
                 msg.info("Failed to export subtitles")
                 mp.osd_message("Failed to export subtitles, check console for more info.")
+            end
+
+            if o.ass2txt and string.match(subtitles_file, "(.ass)$") then
+                assert(loadfile(o.ass2txt_dir))(subtitles_file,o.incl_timestamps)
             end
 
             break

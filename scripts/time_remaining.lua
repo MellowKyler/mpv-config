@@ -3,7 +3,7 @@ local msg = require 'mp.msg'
 local options = require 'mp.options'
 
 local o = {
-    skipped_chapters = dofile('/home/kyler/.config/mpv/scripts/.shared_utils/chapters_to_skip.lua'),
+    skipped_chapters = dofile('/home/kyler/.config/mpv/scripts/.utils/chapters_to_skip.lua'),
     --toggle = true,
 }
 options.read_options(o)

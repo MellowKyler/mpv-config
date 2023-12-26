@@ -1,7 +1,7 @@
 local options = require 'mp.options'
 
 local o = {
-    skip_chapter_list = dofile('/home/kyler/.config/mpv/scripts/.shared_utils/chapters_to_skip.lua'),
+    skip_chapter_list = dofile('/home/kyler/.config/mpv/scripts/.utils/chapters_to_skip.lua'),
 }
 options.read_options(o)
 

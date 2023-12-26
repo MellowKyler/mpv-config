@@ -8,7 +8,8 @@ function open_folder()
         cmd = { "xdg-open", path }
     else
         --cmd = { 'nemo', path }
-        cmd = { 'setwindow', 'nemo '..'"'..path..'"', "970", "900", "960", "512" }
+        -- cmd = { 'setwindow', 'nemo '..'"'..path..'"', "970", "900", "960", "512" }
+        cmd = { 'setwindow', 'nemo '..'"'..path..'"', "2890", "900", "960", "512" }
     end
     mp.command_native({ name = "subprocess", playback_only = false, args = cmd })
 end
@@ -16,7 +17,10 @@ end
 -- /home/kyler/.local/bin/setwindow
 -- REQUIRES wmctrl AND xdotool
 -- setwindow <application + parameters> <horizontal-position> <vertical-position> <horizontal-size> <vertical-size>
+-- more precisely: horizontal position pixels from left boundary, vertical position pixels from top
 -- 970 900 960 512 is bottom right corner
+-- you have to be EXTREMELY CAREFUL with positioning and adding monitors since it completely switches values
+--      even the relative height of a side monitor can shift things
 -- wmctrl -Gl lists windows and their geometry
 
 --mp.add_key_binding("Ctrl+e", "open-folder", open_folder)
