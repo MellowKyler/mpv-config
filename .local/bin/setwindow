@@ -44,6 +44,21 @@ while t < 30:
 # :~$ setwindow nemo 970 900 32 26
 # whereas this input works perfectly:
 # :~$ setwindow nemo 970 900 960 512
+# if you want to open a specific directory the input has to be formatted like this:
+# :~$ setwindow 'nemo "/home/kyler/Downloads"' 970 900 960 512
+# note: the above only works when main 2 monitors are plugged in. if i add living room tv,
+#   it docks to bottom left. we'll see when using room tv.
+
+
+# notes from script 2023/12/01
+# -- /home/kyler/.local/bin/setwindow
+# -- REQUIRES wmctrl AND xdotool
+# -- setwindow <application + parameters> <horizontal-position> <vertical-position> <horizontal-size> <vertical-size>
+# -- 970 900 960 512 is bottom right corner
+# -- you have to be EXTREMELY CAREFUL with positioning and adding monitors since it completely switches values
+# --      even the relative height of a side monitor can shift things
+# -- wmctrl -Gl lists windows and their geometry
+
 
 
 # the original script:
