@@ -18,5 +18,9 @@ The following scripts were modified or coded entirely by me:
 * ```ass2txt.lua```
 
 Be careful with ```open_folder.lua``` and ```open_folder_on_quit.lua``` because they use sww/setwindow. ```open_folder(v2).lua``` in ```unused-scripts``` should work without setwindow.
+
+utils directory in scripts should be .utils
+
 Quite a few scripts rely on x11, and I'll have to address that when I move to Wayland.
+
 Some scripts are very specific to my directory peculiarities, although I try to make modifiable config options.
