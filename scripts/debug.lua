@@ -1,15 +1,16 @@
 local msg = require 'mp.msg'
 local utils = require 'mp.utils'
 
+local options = require 'mp.options'
+local o = {
+    sw_coords = dofile('/home/kyler/.config/mpv/scripts/.utils/setwindow_coords.lua'),
+}
+options.read_options(o)
+
 local function dump_properties()
 
-    local path = mp.get_property('path')
-    msg.info("PATH: "..path)
-    if string.find(path,"/mnt/Torrent/") then 
-        msg.info("Torrent Directory")
-    end
+    msg.info("Value 1: " .. o.sw_coords[1])
     
-
     mp.osd_message("dump_properties done")
 end
 
@@ -50,3 +51,9 @@ end
 -- local secondary_sub_text=(mp.get_property('secondary-sub-text'))
 -- if secondary_sub_text ~= nil then msg.info("secondary-sub-text: "..secondary_sub_text) end
 -- msg.info("platform: "..(mp.get_property('platform')))
+
+-- local path = mp.get_property('path')
+-- msg.info("PATH: "..path)
+-- if string.find(path,"/mnt/Torrent/") then 
+--     msg.info("Torrent Directory")
+-- end

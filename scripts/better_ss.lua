@@ -4,10 +4,15 @@
 --  +   save to one "title" folder, but have distinct filenames
 --  +   option: if no szn_ep found when only_szn_ep, retry  format_filename (using fb_title parameter somehow?)
 --  +   if two digits besides each other, count as szn_ep (ex. angel beats)
+--  +   keybinding to open screenshot folder
+--  +   folder argument options to open mpv_default
+--  +   before iteratively searching through each directory, at least start with a lua regex search on the whole path to see if valid_titles are present
+--      can potentially jump specifically to that directory based on number of "/"
 
 local options = require 'mp.options'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
+local do_not_open_folder = false
 
 ---- Script Options ----
 local o = {
@@ -16,6 +21,18 @@ local o = {
     filetype = ".jpg",
     --enable default mpv behavior
     restore_mpv_default = false,
+
+    -- // FOLDER ARG // --
+    --the below options only apply to use with the folder argument
+    --if true and there is not an existing directory, makes a new directory and opens to it
+    fa_mkdir = false,
+    --if true and the directory is empty, opens custom save directory (fa_mkdir takes precedence)
+    --if both fa_mkdir and fa_open_savedir are false, no folder will be opened
+    fa_open_savedir = true,
+    --never open the specific directory, only open the custom savedir
+    fa_always_savedir = false,
+    --the position for sww. check documentation ~/.local/bin/sww
+    sww_pos = 'se',
 
     -- // DIRECTORY // --
     --custom save directory (do NOT include trailing "/") (not used by mpv_default)
@@ -143,10 +160,16 @@ local function format_valid_dir(save_dir)
     return save_dir
 end
 
-local function directory_exists(directory)
+local function directory_exists(directory,arg)
     local exists, err = os.rename(directory, directory)
     if exists == nil then
-        mp.commandv('run', 'mkdir', directory)
+        if (arg == 'folder') and not o.fa_mkdir then
+            msg.info("Screenshot directory does not exist: "..directory)
+            mp.osd_message("Screenshot directory does not exist", 2)
+            do_not_open_folder = true
+        else
+            mp.commandv('run', 'mkdir', directory)
+        end
     end
 end
 
@@ -260,10 +283,10 @@ local function custom_filenaming(filename,arg_append,time)
     return cf_str
 end
 
-local function mpv_default()
+local function mpv_default(arg)
     --msg.info("mpv_default function reached")
     local directory = o.default_save_dir
-    directory_exists(directory)
+    directory_exists(directory,arg)
     --local filename_prefix = "mpv-shot"
     local file, filename, no_ext, count = iterate_filecount(directory,"mpv-shot",4,"","")
     return file, filename, no_ext, directory
@@ -321,32 +344,48 @@ local function construct_filename(arg)
     local title, valid = get_title()
     if valid ~= true then
         title = get_fallback_title()
-        if empty_name(title, "title") then return mpv_default() end
+        if empty_name(title, "title") then return mpv_default(arg) end
     end
     -- /// DIRECTORY /// --
     local directory = o.custom_save_dir .. "/" .. title
-    directory_exists(directory)
+    directory_exists(directory,arg)
     -- /// FILENAME /// --
     filename, no_ext = get_filename(time,arg_append,title)
-    if filename == "" then return mpv_default() end
+    if filename == "" then return mpv_default(arg) end
     -- /// OUTPUT /// --
     file = directory .. "/" .. filename
     return file, filename, no_ext, directory
+end
+
+local function open_folder(directory)
+    local cmd = { 'sww', 'nemo "'..directory..'"', o.sww_pos }
+    mp.command_native({ name = "subprocess", playback_only = false, args = cmd })
+end
+
+local function fa_manager(directory)
+    if (o.fa_always_savedir) then open_folder(o.custom_save_dir)
+    elseif (do_not_open_folder and not o.fa_open_savedir) then return --mp.osd_message("Screenshot directory does not exist", 2)
+    elseif (do_not_open_folder and o.fa_open_savedir) then open_folder(o.custom_save_dir)
+    else open_folder(directory)
+    end
 end
 
 local function btr_ss(arg)
     return function()
         local file, filename, directory, no_ext
         if o.restore_mpv_default == true then
-            file, filename, no_ext, directory = mpv_default()
+            file, filename, no_ext, directory = mpv_default(arg)
         else
             file, filename, no_ext, directory = construct_filename(arg)
         end
         if o.duplicate_check_enabled and file_exists(file) then
             file, filename = iterate_filecount(directory,no_ext,1,o.duplicate_delim,o.duplicate_count_wrap)
         end
-        mp.osd_message("Screenshot: "..filename, 2)
-        mp.commandv('screenshot-to-file', file, arg)
+        if (arg == 'folder') then fa_manager(directory)
+        else
+            mp.osd_message("Screenshot: "..filename, 2)
+            mp.commandv('screenshot-to-file', file, arg)
+        end
     end
 end
 
@@ -356,3 +395,5 @@ end
 mp.register_script_message('btr-ss-subs', btr_ss('subtitles'))
 mp.register_script_message('btr-ss-video', btr_ss('video'))
 mp.register_script_message('btr-ss-window', btr_ss('window'))
+mp.register_script_message('btr-ss-folder', btr_ss('folder'))
+
