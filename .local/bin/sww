@@ -1,0 +1,52 @@
+#!/usr/bin/env lua
+
+-- setwindow wrapper
+-- /home/kyler/.local/bin/setwindow
+
+local o = {
+    monitors = 3
+}
+
+local sw_fallback = {
+    --tv plus two monitors
+    "2890", -- horizontal position
+    "900",  -- vertical position
+    "960",  -- horizontal size
+    "512",  -- vertical size
+    -- --two monitors
+    -- "970", -- horizontal position
+    -- "900",  -- vertical position
+    -- "960",  -- horizontal size
+    -- "512",  -- vertical size
+}
+
+if (o.monitors == 2) then sw_defaults = {"970", "900", "960", "512"}
+elseif (o.monitors == 3) then sw_defaults = {"2890", "900", "960", "512"}
+else sw_defaults = sw_fallback end
+
+-- argument must be passed as one string, even if there are multiple arguments
+-- 'nemo "/home/kyler/Downloads"'
+-- arg array is similar to ...
+local window = arg[1]
+-- check if position is null?
+-- using cardinal directions for input (ex. 'se' = south east = bottom right corner)
+local position = arg[2]
+-- future params for window size (currently assuming quadrants)
+-- future params for specific monitor i want it to be placed on
+
+if (o.monitors == 2) then -- and (position == "se") then sw_coords = {"970", "900", "960", "512"}
+    if (position == "se") then sw_coords = {"970", "900", "960", "512"}
+    elseif (position == "sw") then sw_coords = {"0", "900", "960", "512"}
+    elseif (position == "nw") then sw_coords = {"0", "0", "960", "512"}
+    elseif (position == "ne") then sw_coords = {"970", "0", "960", "512"}
+    else sw_coords = sw_defaults end
+elseif (o.monitors == 3) then -- and (position == "se") then sw_coords = {"2890", "900", "960", "512"}
+    if (position == "se") then sw_coords = {"2890", "900", "960", "512"}
+    elseif (position == "sw") then sw_coords = {"1920", "900", "960", "512"}
+    elseif (position == "nw") then sw_coords = {"1920", "0", "960", "512"}
+    elseif (position == "ne") then sw_coords = {"2890", "0", "960", "512"}
+    else sw_coords = sw_defaults end  
+else sw_coords = sw_defaults end
+
+-- the ''s are important for the same reason arg must be one string
+os.execute("setwindow".." '"..window.."' "..sw_coords[1].." "..sw_coords[2].." "..sw_coords[3].." "..sw_coords[4])
