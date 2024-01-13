@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+while xwininfo -root -children | grep -q '"obs":';
+do
+    > /tmp/obs-now-playing.txt
+    if [[ `playerctl metadata --format '{{ playerName }}'` == "firefox" ]]; then
+        playerctl metadata --format '{{ title }}' >| /tmp/obs-now-playing.txt
+    else
+        playerctl metadata --format '{{ artist }} - {{ title }}' >| /tmp/obs-now-playing.txt
+    fi
+    sleep 5
+done
