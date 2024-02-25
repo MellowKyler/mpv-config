@@ -168,7 +168,7 @@ local function directory_exists(directory,arg)
             mp.osd_message("Screenshot directory does not exist", 2)
             do_not_open_folder = true
         else
-            mp.commandv('run', 'mkdir', directory)
+            mp.commandv('run', 'mkdir', '-p', directory)
         end
     end
 end
