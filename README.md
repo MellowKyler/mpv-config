@@ -1,5 +1,7 @@
 # mpv-config
 
+```~/.config/mpv/scripts/```
+
 The following scripts were modified or coded entirely by me:
 * ```open_anilist_page.lua```
 * ```better_ss.lua```
