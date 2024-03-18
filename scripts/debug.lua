@@ -1,4 +1,4 @@
-local msg = require 'mp.msg'
+--[[ local msg = require 'mp.msg'
 local utils = require 'mp.utils'
 
 local options = require 'mp.options'
@@ -12,7 +12,7 @@ local function dump_properties()
     msg.info("Value 1: " .. o.sw_coords[1])
     
     mp.osd_message("dump_properties done")
-end
+end ]]
 
 --mp.add_key_binding('Alt+w', dump_properties)
 
