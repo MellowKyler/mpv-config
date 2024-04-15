@@ -1,0 +1,79 @@
+#!/bin/bash
+
+#TODO: i don't handle errors gracefully, especially with the new modes, ESPECIALLY with split_file
+
+dur=0
+noon=12
+mode="$3"
+split_file="$4"
+split_file_dur="$5"
+safe_filetypes=""
+default_filetype_list="mp3 wav m4a m4b"
+
+if [[ "$1" == "-help" ]] ; then
+    echo "dir-dur [DIRECTORY] \"[FILETYPE LIST]\" [MODE]"
+    echo "'man dir-dur' for details"
+    exit 1
+fi
+
+if [[ "$1" == "" || "$1" == "pwd" ]] ; then
+    dir="$(pwd)"
+else
+    dir="$1"
+fi
+
+if [[ "$2" == "" || "$2" == "def" ]] ; then
+    filetypes="$default_filetype_list"
+else
+    filetypes="$2"
+fi
+
+if [[ "$split_file" != "" ]] && ! [[ "$split_file_dur" =~ ^[0-9]+$ ]] ; then
+    split_file_dur=0
+fi
+
+for filetype in $filetypes; do
+    if ls "$dir"/*."$filetype" 1>/dev/null 2>&1; then
+        safe_filetypes="$safe_filetypes $filetype"
+    fi
+done
+
+split_file_handler () {
+    splitpoint="$(echo "$dur + $split_file_dur" | bc | awk '{print int($1+0.5)}')"
+}
+
+if [ -n "$safe_filetypes" ]; then
+    for filetype in $safe_filetypes; do
+        for file in "$dir"/*."$filetype"; do
+            if [[ "$split_file" != "" ]] && [[ "$file" == "$split_file" ]]; then split_file_handler ; fi
+            tdur=$(soxi -D "$file")
+            dur=$(echo $dur + $tdur | bc)
+            if [[ "$(echo $dur / 3600 | bc)" -ge "$noon" ]] && [[ "$mode" != "silent" && "$mode" != "quiet" && "$mode" != "raw" && "$mode" != "tmp" && "$mode" != "lua" ]] ; then
+                filename=$(basename "$file")
+                echo "$noon hour mark: $filename"
+                noon=$(($noon + 12))
+            fi
+        done
+    done
+else
+    echo "No files found for any of the specified filetypes (${filetypes}) in the directory. Exiting."
+    exit 1
+fi
+
+if [ "$mode" == "raw" ] ; then
+    echo "$dur + 0.5" | bc | awk '{print int($1+0.5)}'
+elif [ "$mode" == "tmp" ] ; then
+    echo "$dur + 0.5" | bc | awk '{print int($1+0.5)}' > /tmp/dd.txt
+elif [ "$mode" == "lua" ] ; then
+    raw=$(echo "$dur + 0.5" | bc | awk '{print int($1+0.5)}')
+    #time_remaining might not be necessary since both pieces are there anyway, idk.
+    time_remaining=$(echo "$dur - $splitpoint" | bc | awk '{print int($1+0.5)}')
+    echo "$splitpoint,$time_remaining,$raw"
+else
+    hours=$(echo $dur / 3600 | bc)
+    minutes=$(echo $dur % 3600 / 60 | bc)
+    seconds=$(echo "($dur % 60) + 0.5" | bc | awk '{print int($1+0.5)}')
+
+    echo "Total duration: ${hours}h${minutes}m${seconds}s"
+    # echo "Total duration: $hours hours, $minutes minutes, and $seconds seconds"
+fi
