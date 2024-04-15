@@ -18,6 +18,7 @@ The following scripts were modified or coded entirely by me:
 * ```time_remaining.lua```
 * ```chapters_to_skip.lua```
 * ```ass2txt.lua```
+* ```dir_dur.lua```
 
 Be careful with ```open_folder.lua``` and ```open_folder_on_quit.lua``` because they use sww/setwindow. ```open_folder(v2).lua``` in ```unused-scripts``` should work without setwindow.
 
