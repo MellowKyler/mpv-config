@@ -114,4 +114,4 @@ end
 
 -- replace dump_properties
 -- replace keybinding
-mp.add_key_binding('Alt+w', dump_properties)
+mp.add_key_binding('Alt+0', dump_properties)

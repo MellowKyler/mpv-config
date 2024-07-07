@@ -6,8 +6,6 @@ mp.register_event("file-loaded", function(ev)
     --can't get path property during shutdown or end-file
     path = mp.get_property('path')
     path, path_filename = utils.split_path(path)
-    -- escape quotes in directory
-    path = path:gsub("'", "\'\\'\'"):gsub('"', "\\\"")
 end)
 
 mp.register_event(

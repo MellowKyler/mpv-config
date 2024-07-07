@@ -5,8 +5,6 @@ local utils = require 'mp.utils'
 function open_folder()
     local path = mp.get_property('path')
     local path, path_filename = utils.split_path(path)
-    -- escape quotes in directory
-    path = path:gsub("'", "\'\\'\'"):gsub('"', "\\\"")
     local cmd
     if string.sub(path,1,4) == "http" then
         cmd = { "xdg-open", path }

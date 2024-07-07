@@ -14,7 +14,21 @@ local function dump_properties()
     mp.osd_message("dump_properties done")
 end ]]
 
---mp.add_key_binding('Alt+w', dump_properties)
+local utils = require 'mp.utils'
+local msg = require 'mp.msg'
+local options = require 'mp.options'
+
+
+
+local function dump_properties()
+    local path = mp.get_property('path')
+    local dir, path_filename = utils.split_path(path)
+    msg.info("PATH: "..path)
+    msg.info("DIR: "..dir)
+    msg.info("PATH_FILENAME: "..path_filename)
+end
+
+mp.add_key_binding('Alt+w', dump_properties)
 
 
 
